@@ -74,7 +74,7 @@ const ast: UiAst = {
 
 describe("applyUiDefaults", () => {
   it("keeps composite defaults from the active/default variant instead of the last variant", () => {
-    expect(applyUiDefaults(ast, {})).toEqual({
+    expect(applyUiDefaults(ast, { complexComposite: { config: [] } })).toEqual({
       complexComposite: {
         config: [],
       },

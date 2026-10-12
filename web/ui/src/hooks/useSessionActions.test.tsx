@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionResponse } from "../types";
 import { useSessionActions } from "./useSessionActions";
 import { useSessionState } from "./useSessionState";
@@ -140,7 +140,9 @@ describe("useSessionActions", () => {
     apiMocks.renderPreview
       .mockResolvedValueOnce({ payload: '{\n  "field": ""\n}' })
       .mockRejectedValueOnce(
-        new Error(JSON.stringify({ error: "TOML cannot represent null at /items/1" })),
+        new Error(
+          JSON.stringify({ error: "TOML cannot represent null at /items/1" }),
+        ),
       );
 
     const { result } = renderHook(() => useHarness());
@@ -157,7 +159,7 @@ describe("useSessionActions", () => {
     });
 
     expect(apiMocks.renderPreview).toHaveBeenLastCalledWith(
-      { field: "" },
+      {},
       "toml",
       true,
     );
@@ -197,7 +199,10 @@ describe("useSessionActions", () => {
     expect(second.result.current.state.data).not.toHaveProperty("field");
 
     act(() => {
-      second.result.current.handleChange("/other_field", "draft-from-second-form");
+      second.result.current.handleChange(
+        "/other_field",
+        "draft-from-second-form",
+      );
     });
 
     expect(Object.keys(localStorage)).toHaveLength(2);

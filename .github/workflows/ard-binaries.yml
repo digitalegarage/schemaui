@@ -1,0 +1,113 @@
+name: ARD fork binaries
+
+on:
+  push:
+    tags: ["ard-v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing ard-v release tag to build"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  release-ref:
+    if: github.repository == 'digitalegarage/schemaui'
+    runs-on: ubuntu-22.04
+    outputs:
+      tag: ${{ steps.ref.outputs.tag }}
+      commit: ${{ steps.ref.outputs.commit }}
+      tree: ${{ steps.ref.outputs.tree }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+          fetch-depth: 0
+      - id: ref
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^ard-v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          commit=$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")
+          test "$commit" = "$(git rev-parse HEAD)"
+          {
+            echo "tag=$RELEASE_TAG"
+            echo "commit=$commit"
+            echo "tree=$(git rev-parse "$commit^{tree}")"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: release-ref
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-14, target: aarch64-apple-darwin }
+          - { os: macos-14, target: x86_64-apple-darwin }
+          - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-ref.outputs.commit }}
+          submodules: recursive
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: web/ui/pnpm-lock.yaml
+      - name: Test and build embedded frontend
+        working-directory: web/ui
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm test
+          pnpm typecheck
+          pnpm run build:embedded
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.90.0"
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Test and build Rust binary
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          cargo test --locked --no-default-features --features json,tui,web --lib
+          cargo build --locked --release -p schemaui-cli --no-default-features --features full --target "$TARGET"
+          mkdir artifacts
+          tar -czf "artifacts/schemaui-$TARGET.tar.gz" -C "target/$TARGET/release" schemaui
+      - uses: actions/upload-artifact@v4
+        with:
+          name: schemaui-${{ matrix.target }}
+          path: artifacts/*.tar.gz
+
+  publish:
+    needs: [release-ref, build]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Publish all verified platform archives
+        working-directory: artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.release-ref.outputs.tag }}
+          SOURCE_TREE: ${{ needs.release-ref.outputs.tree }}
+        run: |
+          echo "# Source tree: $SOURCE_TREE" > SHA256SUMS
+          sha256sum -- *.tar.gz >> SHA256SUMS
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --verify-tag --title "$RELEASE_TAG" --notes 'Patched schemaui CLI with config preservation fixes. Web UI is embedded.'
+          fi
+          gh release upload "$RELEASE_TAG" ./*.tar.gz SHA256SUMS --clobber

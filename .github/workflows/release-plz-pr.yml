@@ -16,6 +16,7 @@ on:
 
 jobs:
   release-plz-pr:
+    if: github.repository_owner == 'YuniqueUnic'
     name: Create Release PR
     runs-on: ubuntu-latest
     permissions:

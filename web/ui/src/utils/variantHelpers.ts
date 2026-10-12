@@ -1,3 +1,4 @@
+import { resolveStandaloneSchema } from "./schemaToUiKind";
 import type { JsonValue, UiVariant } from "../types";
 import {
   VARIANT_CONFIGS,
@@ -102,13 +103,16 @@ export function determineBestVariant(
 export function extractSchemaProperties(
   schema: JsonValue | undefined,
 ): Record<string, unknown> {
-  if (
-    schema &&
-    typeof schema === "object" &&
-    !Array.isArray(schema) &&
-    "properties" in schema
-  ) {
-    return schema.properties as Record<string, unknown>;
+  if (schema && typeof schema === "object" && !Array.isArray(schema)) {
+    const resolved = resolveStandaloneSchema(
+      schema as Record<string, JsonValue>,
+    );
+    if (
+      resolved.properties && typeof resolved.properties === "object" &&
+      !Array.isArray(resolved.properties)
+    ) {
+      return resolved.properties as Record<string, unknown>;
+    }
   }
   return {};
 }

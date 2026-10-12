@@ -47,13 +47,16 @@ export function materializeVariantNode(variant: UiVariant): UiNodeKind {
   });
 }
 
-function needsMaterializedNode(variant: UiVariant, schema: JsonSchema): boolean {
+function needsMaterializedNode(
+  variant: UiVariant,
+  schema: JsonSchema,
+): boolean {
   return variant.node.type === "object" &&
     variant.node.children.length === 0 &&
     isObjectSchema(schema);
 }
 
-function resolveStandaloneSchema(schema: JsonSchema): JsonSchema {
+export function resolveStandaloneSchema(schema: JsonSchema): JsonSchema {
   const ref = readString(schema.$ref);
   if (!ref || !ref.startsWith("#/")) {
     return schema;
@@ -175,7 +178,10 @@ function visitKind(schema: JsonSchema, context: BuildContext): UiNodeKind {
   return detectScalarKind(normalized);
 }
 
-function visitArrayItemKind(schema: JsonSchema, context: BuildContext): UiNodeKind {
+function visitArrayItemKind(
+  schema: JsonSchema,
+  context: BuildContext,
+): UiNodeKind {
   const items = schema.items;
   const itemSchemaValue = Array.isArray(items) ? items[0] : items;
   const itemSchema = ensureObject(itemSchemaValue);
@@ -193,7 +199,9 @@ function visitArrayItemKind(schema: JsonSchema, context: BuildContext): UiNodeKi
     ? { ...context, activeRefs: [...context.activeRefs, resolved.ref] }
     : context;
 
-  if (isObjectSchema(resolved.schema) && !hasCompositeSubschemas(resolved.schema)) {
+  if (
+    isObjectSchema(resolved.schema) && !hasCompositeSubschemas(resolved.schema)
+  ) {
     return buildSingleVariantOverlayKind(
       resolved.schema,
       visitKind(resolved.schema, nextContext),
@@ -363,7 +371,8 @@ function detectScalarKind(schema: JsonSchema): UiNodeKind {
 
 function schemaAllowsNull(schema: JsonSchema): boolean {
   const rawType = schema.type;
-  return rawType === "null" || (Array.isArray(rawType) && rawType.includes("null"));
+  return rawType === "null" ||
+    (Array.isArray(rawType) && rawType.includes("null"));
 }
 
 function normalizeScalarKind(schema: JsonSchema): ScalarKind {
@@ -423,7 +432,9 @@ function generateVariantDefault(variant: UiVariant): JsonValue {
   const node = variant.node;
   if (node.type === "object") {
     const result: Record<string, JsonValue> = {};
-    const schemaProps = ensureObjectMap(ensureObject(variant.schema).properties);
+    const schemaProps = ensureObjectMap(
+      ensureObject(variant.schema).properties,
+    );
     for (const [key, value] of Object.entries(schemaProps)) {
       const propertySchema = ensureObject(value);
       if (propertySchema.const !== undefined) {
@@ -592,11 +603,15 @@ function ensureObject(value: JsonValue | undefined): JsonSchema {
   return isPlainObject(value) ? (value as JsonSchema) : {};
 }
 
-function ensureObjectMap(value: JsonValue | undefined): Record<string, JsonValue> {
+function ensureObjectMap(
+  value: JsonValue | undefined,
+): Record<string, JsonValue> {
   return isPlainObject(value) ? (value as Record<string, JsonValue>) : {};
 }
 
-function isPlainObject(value: JsonValue | undefined): value is Record<string, JsonValue> {
+function isPlainObject(
+  value: JsonValue | undefined,
+): value is Record<string, JsonValue> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
@@ -621,8 +636,10 @@ function omitKey(schema: JsonSchema, key: string): JsonSchema {
 }
 
 function enumLabel(value: JsonValue): string {
-  if (typeof value === "string" || typeof value === "number" ||
-    typeof value === "boolean") {
+  if (
+    typeof value === "string" || typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
     return String(value);
   }
   return JSON.stringify(value);
