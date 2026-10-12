@@ -1,7 +1,11 @@
+import { toast } from "sonner";
 import type { JsonValue, UiNode } from "../../types";
 import { defaultForKind } from "../../ui-ast";
 import { formatValueSummary } from "../../utils/typeHelpers";
-import { buildKindFromSchema, materializeCompositeKind } from "../../utils/schemaToUiKind";
+import {
+  buildKindFromSchema,
+  materializeCompositeKind,
+} from "../../utils/schemaToUiKind";
 import { useOverlay } from "../Overlay";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -83,7 +87,7 @@ export function KeyValueRenderer({
   const openEditor = (
     entryIndex: number,
     initialValue: KeyValueEntryDraft,
-    onSaveEntry: (draft: KeyValueEntryDraft) => void,
+    onSaveEntry: (draft: KeyValueEntryDraft) => boolean,
   ) => {
     const entryNode = entryNodeFor(entryIndex);
 
@@ -96,8 +100,7 @@ export function KeyValueRenderer({
           errors={errors}
           onSave={(newValue) => {
             const draft = parseDraftValue(newValue, template);
-            onSaveEntry(draft);
-            close();
+            if (onSaveEntry(draft)) close();
           }}
           onClose={close}
           renderNode={renderNode}
@@ -111,14 +114,20 @@ export function KeyValueRenderer({
     draft: KeyValueEntryDraft,
   ) => {
     const next = {
-      ...(value && typeof value === "object" && !Array.isArray(value) ? value : {}),
+      ...(value && typeof value === "object" && !Array.isArray(value)
+        ? value
+        : {}),
     } as Record<string, JsonValue>;
 
+    if (draft.key !== previousKey && Object.hasOwn(next, draft.key)) {
+      toast.error(t("An entry with this key already exists."));
+      return false;
+    }
     if (previousKey !== null) {
       delete next[previousKey];
     }
-    next[draft.key] = draft.value;
-    onChange(node.pointer, next);
+    onChange(node.pointer, { ...next, [draft.key]: draft.value });
+    return true;
   };
 
   return (
@@ -171,7 +180,9 @@ export function KeyValueRenderer({
                     variant="ghost"
                     size="sm"
                     onClick={() => {
-                      const next = { ...(value as Record<string, JsonValue> ?? {}) };
+                      const next = {
+                        ...(value as Record<string, JsonValue> ?? {}),
+                      };
                       delete next[key];
                       onChange(node.pointer, next);
                     }}
@@ -190,8 +201,7 @@ export function KeyValueRenderer({
         size="sm"
         onClick={() =>
           openEditor(entries.length, buildDraftValue(template), (draft) =>
-            saveEntry(null, draft)
-          )}
+            saveEntry(null, draft))}
         className="w-full"
       >
         {t("+ Add entry")}
@@ -223,7 +233,9 @@ function parseDraftValue(
       : typeof template.key_default === "string"
       ? template.key_default
       : "",
-    value: draft.value ?? template.value_default ?? defaultForKind(template.value_kind),
+    value: draft.value !== undefined
+      ? draft.value
+      : template.value_default ?? defaultForKind(template.value_kind),
   };
 }
 

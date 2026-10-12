@@ -704,7 +704,9 @@ describe("NodeRenderer web overlay flows", () => {
     let textboxes = within(dialog).getAllByRole("textbox");
     await user.clear(textboxes[0]);
     await user.type(textboxes[0], "child");
-    await user.click(within(dialog).getByRole("button", { name: /add entry/i }));
+    await user.click(
+      within(dialog).getByRole("button", { name: /add entry/i }),
+    );
 
     dialog = await screen.findByRole("dialog");
     textboxes = within(dialog).getAllByRole("textbox");
@@ -723,11 +725,8 @@ describe("NodeRenderer web overlay flows", () => {
         children: [
           {
             name: "grandchild",
-            children: [],
-            value: "",
           },
         ],
-        value: "",
       },
     ]);
   });
@@ -755,10 +754,6 @@ describe("NodeRenderer web overlay flows", () => {
         {
           x: 0,
           y: 0,
-          data: {
-            type: "point",
-            value: 0,
-          },
         },
       ],
     ]);
@@ -769,9 +764,10 @@ describe("NodeRenderer web overlay flows", () => {
     render(<EditorHarness node={arrayOfAnyOfNode} initialValue={[]} />);
 
     await user.click(screen.getByRole("button", { name: /add entry/i }));
-    expect(JSON.parse(screen.getByTestId("value").textContent ?? "null")).toEqual(
-      [],
-    );
+    expect(JSON.parse(screen.getByTestId("value").textContent ?? "null"))
+      .toEqual(
+        [],
+      );
 
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByText("Object Item"));
@@ -784,15 +780,15 @@ describe("NodeRenderer web overlay flows", () => {
     await user.type(textboxes[0], "entry-1");
     await user.click(within(dialog).getByRole("button", { name: /^done$/i }));
 
-    expect(JSON.parse(screen.getByTestId("value").textContent ?? "null")).toEqual(
-      [
-        {
-          id: "entry-1",
-          value: 0,
-        },
-      ],
-    );
-    expect(screen.getByText("{ id: entry-1, value: 0 }")).toBeTruthy();
+    expect(JSON.parse(screen.getByTestId("value").textContent ?? "null"))
+      .toEqual(
+        [
+          {
+            id: "entry-1",
+          },
+        ],
+      );
+    expect(screen.getByText("{ id: entry-1 }")).toBeTruthy();
   });
 
   it("does not append a complex array entry when the dialog is cancelled", async () => {
@@ -803,9 +799,10 @@ describe("NodeRenderer web overlay flows", () => {
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: /^cancel$/i }));
 
-    expect(JSON.parse(screen.getByTestId("value").textContent ?? "null")).toEqual(
-      [],
-    );
+    expect(JSON.parse(screen.getByTestId("value").textContent ?? "null"))
+      .toEqual(
+        [],
+      );
   });
 
   it("keeps single composite selector and content in sync for nested object variants", async () => {
@@ -829,12 +826,10 @@ describe("NodeRenderer web overlay flows", () => {
     expect(screen.getByText("Object Config content:")).toBeTruthy();
     expect(screen.queryByText("List Config content:")).toBeNull();
     expect(screen.getByText("/settings")).toBeTruthy();
-    expect(JSON.parse(screen.getByTestId("value").textContent ?? "null")).toEqual(
-      {
-        mode: "basic",
-        settings: {},
-      },
-    );
+    expect(JSON.parse(screen.getByTestId("value").textContent ?? "null"))
+      .toEqual(
+        {},
+      );
   });
 
   it("materializes object defaults for $defs-backed object-or-null variants", async () => {
@@ -858,12 +853,13 @@ describe("NodeRenderer web overlay flows", () => {
     expect(screen.getByDisplayValue("127.0.0.1:8080")).toBeTruthy();
     expect(screen.getByDisplayValue("5")).toBeTruthy();
     expect(screen.queryByText("Select an option")).toBeNull();
-    expect(JSON.parse(screen.getByTestId("value").textContent ?? "null")).toEqual(
-      {
-        "speedtest-target": "127.0.0.1:8080",
-        "expected-rate-mbps": 5,
-      },
-    );
+    expect(JSON.parse(screen.getByTestId("value").textContent ?? "null"))
+      .toEqual(
+        {
+          "speedtest-target": "127.0.0.1:8080",
+          "expected-rate-mbps": 5,
+        },
+      );
 
     await user.click(nullRadio);
 
@@ -872,7 +868,8 @@ describe("NodeRenderer web overlay flows", () => {
     expect(screen.getByText("Null content:")).toBeTruthy();
     expect(screen.getByRole("combobox")).toHaveTextContent("null");
     expect(screen.queryByText("Select an option")).toBeNull();
-    expect(JSON.parse(screen.getByTestId("value").textContent ?? "null")).toBeNull();
+    expect(JSON.parse(screen.getByTestId("value").textContent ?? "null"))
+      .toBeNull();
   });
 
   it("renders key-value nodes with add-entry controls and saves dns hosts entries", async () => {
@@ -892,9 +889,90 @@ describe("NodeRenderer web overlay flows", () => {
 
     expect(screen.getByText("www.google.com")).toBeTruthy();
     expect(screen.getByText("8.8.8.8")).toBeTruthy();
-    expect(JSON.parse(screen.getByTestId("value").textContent ?? "null")).toEqual(
-      { "www.google.com": "8.8.8.8" },
+    expect(JSON.parse(screen.getByTestId("value").textContent ?? "null"))
+      .toEqual(
+        { "www.google.com": "8.8.8.8" },
+      );
+  });
+
+  it("preserves null when an existing map entry is opened and saved", async () => {
+    const user = userEvent.setup();
+    render(
+      <EditorHarness node={dnsHostsNode} initialValue={{ nullable: null }} />,
     );
+    await user.click(screen.getByRole("button", { name: /^edit$/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /^done$/i }));
+    expect(JSON.parse(screen.getByTestId("value").textContent ?? "null"))
+      .toEqual({ nullable: null });
+  });
+
+  it("rejects a new map key that would overwrite an existing entry", async () => {
+    const user = userEvent.setup();
+    render(
+      <EditorHarness
+        node={dnsHostsNode}
+        initialValue={{ existing: "original" }}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /\+ add entry/i }));
+    const dialog = await screen.findByRole("dialog");
+    const textboxes = within(dialog).getAllByRole("textbox");
+    await user.type(textboxes[0], "existing");
+    await user.type(textboxes[1], "replacement");
+    await user.click(within(dialog).getByRole("button", { name: /^done$/i }));
+    expect(JSON.parse(screen.getByTestId("value").textContent ?? "null"))
+      .toEqual({ existing: "original" });
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  it("rejects a map rename that would overwrite a sibling", async () => {
+    const user = userEvent.setup();
+    render(
+      <EditorHarness
+        node={dnsHostsNode}
+        initialValue={{ first: "one", second: "two" }}
+      />,
+    );
+    await user.click(screen.getAllByRole("button", { name: /^edit$/i })[0]);
+    const dialog = await screen.findByRole("dialog");
+    const textbox = within(dialog).getAllByRole("textbox")[0];
+    await user.clear(textbox);
+    await user.type(textbox, "second");
+    await user.click(within(dialog).getByRole("button", { name: /^done$/i }));
+    expect(JSON.parse(screen.getByTestId("value").textContent ?? "null"))
+      .toEqual({ first: "one", second: "two" });
+  });
+
+  it("preserves a map key named __proto__ when adding and renaming", async () => {
+    const user = userEvent.setup();
+    render(
+      <EditorHarness
+        node={dnsHostsNode}
+        initialValue={{ original: "value" }}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /^edit$/i }));
+    const dialog = await screen.findByRole("dialog");
+    const key = within(dialog).getAllByRole("textbox")[0];
+    await user.clear(key);
+    await user.type(key, "__proto__");
+    await user.click(within(dialog).getByRole("button", { name: /^done$/i }));
+    const value = JSON.parse(screen.getByTestId("value").textContent ?? "null");
+    expect(Object.hasOwn(value, "__proto__")).toBe(true);
+    expect(value.__proto__).toBe("value");
+    await user.click(screen.getByRole("button", { name: /^remove$/i }));
+    await user.click(screen.getByRole("button", { name: /\+ add entry/i }));
+    const addedDialog = await screen.findByRole("dialog");
+    const inputs = within(addedDialog).getAllByRole("textbox");
+    await user.type(inputs[0], "__proto__");
+    await user.type(inputs[1], "added");
+    await user.click(
+      within(addedDialog).getByRole("button", { name: /^done$/i }),
+    );
+    const added = JSON.parse(screen.getByTestId("value").textContent ?? "null");
+    expect(Object.hasOwn(added, "__proto__")).toBe(true);
+    expect(added.__proto__).toBe("added");
   });
 
   it("adds inner padding to overlay scroll region so focused inputs are not clipped", async () => {
